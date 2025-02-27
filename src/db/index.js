@@ -1,10 +1,12 @@
 import mongoose from "mongoose"
+import {DB_NAME} from "../constants.js"
+
 const connectDB = async () => {
     try {
-        if(!process.env.MONGO_URI){
+        if(!process.env.MONGODB_URI){
             throw new Error("Mongo URI is missing")
         }
-        const connectionInstance = await mongoose.connect(`${process.env.MONGO_URI}`)
+        const connectionInstance = await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`)
         console.log(`Connected to DB: ${connectionInstance.connection.host}`)
         
     } catch (error) {

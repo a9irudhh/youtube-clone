@@ -13,4 +13,10 @@ app.use(express.urlencoded({extended: true})) // express.urlencoded() is a middl
 app.use(express.static("public")) // express.static() is a middleware function that serves static files
 app.use(cookieParser()) // cookieParser is a middleware function that parses cookies attached to the client request object
 
+// routes
+import userRoutes from "./routes/user.routes.js"
+
+app.use("/api/users", userRoutes)
+
+
 export default app

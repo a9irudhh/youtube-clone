@@ -6,7 +6,7 @@ const connectDB = async () => {
         if(!process.env.MONGODB_URI){
             throw new Error("Mongo URI is missing")
         }
-        const connectionInstance = await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`)
+        const connectionInstance = await mongoose.connect(`${process.env.MONGODB_URI}`)
         console.log(`Connected to DB: ${connectionInstance.connection.host}`)
         
     } catch (error) {

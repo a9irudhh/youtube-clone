@@ -32,8 +32,6 @@ const generateToken = async (userId) => {
     }
 };
 
-
-
 const registerUser = asyncHandler(async (req, res) => {
     /*
      get user details from frontend (req)
@@ -189,4 +187,98 @@ const refreshAccessToken = asyncHandler(async(req, res) => {
     }
 
 })
-export { registerUser, loginUser, logoutUser, refreshAccessToken }
+
+const changePassword = asyncHandler(async(req, res) => {
+    const {oldPassword, newPassword} = req.body;
+    if(!oldPassword || !newPassword) {
+        throw new ApiError(400, "Please fill in all fields")
+    }
+
+    const user = await User.findById(req.user?._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(oldPassword)
+    if(!isPasswordCorrect) {
+        throw new ApiError(400, "Invalid password")
+    }
+
+    user.password = newPassword;
+    await user.save({ validateBeforeSave: false });
+     
+    return res
+    .status(200)
+    .json(new ApiResponse(200, "Password changed successfully"))
+
+})
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+    return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "User found"))
+}) 
+
+const updateUserDetails = asyncHandler(async (req, res) => {
+    const {userName, fullName, email} = req.body;
+    if(!userName || !fullName || !email) {
+        throw new ApiError(400, "Please fill in all fields")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id, {
+            $set: {
+                userName: userName.toLowerCase(),
+                fullName,
+                email
+            }
+        },
+        {new: true}).select("-password -refreshToken")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User details updated successfully"))
+})
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+    const avatarPath = req.file?.path;
+    if(!avatarPath) {
+        throw new ApiError(400, "Please upload an image")
+    }
+
+    const avatar = await uploadFile(avatarPath)
+    if(!avatar) {
+        throw new ApiError(500, "Error uploading avatar")
+    }
+
+    const user = await User.findByIdAndUpdate(req.user?._id, {
+        $set: {
+            avatar
+        }
+    }, {new: true}).select("-password -refreshToken")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar updated successfully"))
+})
+
+const updateCoverPath = asyncHandler(async (req, res) => {
+    const coverPath = req.file?.path;
+    if(!coverPath) {
+        throw new ApiError(400, "Please upload an image")
+    }
+
+    const coverImage = await uploadFile(coverPath)
+    if(!coverImage) {
+        throw new ApiError(500, "Error uploading coverImage")
+    }
+
+    const user = await User.findByIdAndUpdate(req.user?._id, {
+        $set: {
+            coverImage
+        }
+    }, {new: true}).select("-password -refreshToken")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Cover image updated successfully"))
+})
+
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken, changePassword, getCurrentUser, updateUserDetails , updateUserAvatar, updateCoverPath }

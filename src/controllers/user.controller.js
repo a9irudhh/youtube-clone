@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/apiResponse.js";
 import { User } from "../models/user.model.js";
 import {uploadFile} from "../utils/cloudinary.js"
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 const options = {
     httpOnly: true,
@@ -143,8 +144,8 @@ const logoutUser = asyncHandler(async (req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: {
-                refreshToken: undefined
+            $unset: {
+                refreshToken: 1
             }
         },
         {new: true}
@@ -159,6 +160,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async(req, res) => {
     const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    // console.log("HERE : ", incomingRefreshToken)    
     if(!incomingRefreshToken) {
         throw new ApiError(401, "Unauthorised access")
     }
@@ -173,9 +175,12 @@ const refreshAccessToken = asyncHandler(async(req, res) => {
         if(user.refreshToken !== incomingRefreshToken) {
             throw new ApiError(401, "Invalid refresh token")
         }
-    
-        
-        const {newRefreshToken, newAccessToken} = await generateToken(user._id)
+
+
+        // console.log("USER : ", user)
+        // destructuring issues (solved using aliased destructuring "by using :")
+        const {refreshToken : newRefreshToken, accessToken : newAccessToken} = await generateToken(user._id)        
+        // console.log("NEW TOKENS : ", {newRefreshToken, newAccessToken})
         return res
         .status(200)
         .cookie("accessToken", newAccessToken, options)
@@ -238,6 +243,7 @@ const updateUserDetails = asyncHandler(async (req, res) => {
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
     const avatarPath = req.file?.path;
+    console.log("AVATAR PATH: ", avatarPath)
     if(!avatarPath) {
         throw new ApiError(400, "Please upload an image")
     }
@@ -280,20 +286,19 @@ const updateCoverPath = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Cover image updated successfully"))
 })
 
-const getUserChannel = asyncHandler(async(req, res) => {
-    const userName = req.params;
-    if(!userName) {
-        throw new ApiError(400, "Please provide a username")
+const getUserChannel = asyncHandler(async (req, res) => {
+    const { userName } = req.params;
+
+    if (!userName) {
+        throw new ApiError(400, "Please provide a username");
     }
 
     const channel = await User.aggregate([
         {
-            $match : {
-                userName: userName.toLowerCase()
-            }
+            $match: { userName: userName } 
         },
         {
-            $lookup : {
+            $lookup: {
                 from: "subscriptions",
                 localField: "_id",
                 foreignField: "channel",
@@ -301,7 +306,7 @@ const getUserChannel = asyncHandler(async(req, res) => {
             }
         },
         {
-            $lookup : {
+            $lookup: {
                 from: "subscriptions",
                 localField: "_id",
                 foreignField: "subscriber",
@@ -309,15 +314,11 @@ const getUserChannel = asyncHandler(async(req, res) => {
             }
         },
         {
-            $addFields : {
+            $addFields: {
                 subscriberCount: { $size: "$subscriber" },
                 subscribedToCount: { $size: "$subscribedTo" },
                 isSubscribed: {
-                    $cond: {
-                        if: { $in: [req.user?._id, "$subscriber.subscriber"] },
-                        then: true,
-                        else: false
-                    }
+                    $in: [req.user?._id, "$subscriber.subscriber"]
                 }
             }
         },
@@ -329,17 +330,19 @@ const getUserChannel = asyncHandler(async(req, res) => {
                 subscribedTo: 0
             }
         }
-    ])
+    ]);
 
-    if(!channel) {
-        throw new ApiError(404, "User not found")
+    if (channel.length === 0) {
+        throw new ApiError(404, "User not found");
     }
-    console.log("CHANNEL : ", channel)
+
+    // console.log("CHANNEL:", channel[0]); 
+
     return res
     .status(200)
-    .json(new ApiResponse(200, channel[0], "User found"))
+    .json(new ApiResponse(200, channel[0], "User found"));
+});
 
-})
 
 const getUserHistory = asyncHandler(async (req, res) => {
         const user = await User.aggregate([
